@@ -1,0 +1,122 @@
+/* ═══════════════════════════════════════════════
+   CLEAVE SNP — Global Styles
+   ═══════════════════════════════════════════════ */
+
+:root {
+  /* Core palette */
+  --bg: #0a0a0f;
+  --surface: #12121a;
+  --surface-alt: #1a1a25;
+  --card: #15151f;
+  --border: #2a2a3a;
+  --border-hover: #3a3a5a;
+
+  /* Accent */
+  --accent: #CC0000;
+  --accent-dark: #8a0000;
+  --accent-glow: rgba(204, 0, 0, 0.15);
+
+  /* Text */
+  --text: #e8e8f0;
+  --text-muted: #8888a0;
+  --text-dim: #55556a;
+
+  /* Semantic */
+  --green: #22cc66;
+  --green-bg: #0a2a1a;
+  --green-border: #1a4a2a;
+  --red: #ff4455;
+  --red-bg: #2a0a0f;
+  --red-border: #4a1a1a;
+  --orange: #ffaa33;
+  --orange-bg: #2a1a0a;
+  --orange-border: #4a3a1a;
+  --blue: #4488ee;
+  --blue-bg: #0a1a2a;
+  --blue-border: #1a2a4a;
+
+  /* Typography */
+  --font-body: 'DM Sans', system-ui, sans-serif;
+  --font-display: 'DM Sans', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+}
+
+/* Reset */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  font-family: var(--font-body);
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.5;
+  min-height: 100vh;
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+}
+a:hover {
+  text-decoration: underline;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--border-hover);
+}
+
+/* Range input accent */
+input[type='range'] {
+  accent-color: var(--accent);
+}
+
+/* Selection */
+::selection {
+  background: var(--accent);
+  color: #fff;
+}
+
+/* Animations */
+@keyframes cleaveSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fade-in {
+  animation: fadeIn 0.3s ease-out;
+}

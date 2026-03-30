@@ -1,0 +1,9 @@
+export { default as HomePage } from './HomePage';
+export { default as DatabasePage } from './DatabasePage';
+export { default as AnalysisPage } from './AnalysisPage';
+export { default as InstructionsPage } from './InstructionsPage';
+export { default as AnalyzingPage } from './AnalyzingPage';
+export { default as SNPResultsPage } from './SNPResultsPage';
+export { default as CRISPRDesignPage } from './CRISPRDesignPage';
+export { default as BindingViewPage } from './BindingViewPage';
+export { default as EditResultsPage } from './EditResultsPage';
