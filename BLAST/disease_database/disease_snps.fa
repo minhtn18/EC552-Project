@@ -1,0 +1,4 @@
+>HBB_sickle|gene=HBB|variant=c.20A>T|ref_pos=20|ref=A|alt=T|pathogenicity=Pathogenic|harm=High|disease=Sickle_cell_disease
+ACATTTGCTTCTGACACAACTGTGTTCACTAGCAACCTCAAACAGACACCATGGTGCATCTGACTCCTGTGGAGAAGTCT
+>HBB_custom|gene=HBB|variant=c.59T>C|ref_pos=59|ref=T|alt=C|pathogenicity=Likely_pathogenic|harm=Medium|disease=Your_disease_name
+ACATTTGCTTCTGACACAACTGTGTTCACTAGCAACCTCAAACAGACACCATGGTGCACCTGACTCCTGAGGAGAAGTCT
