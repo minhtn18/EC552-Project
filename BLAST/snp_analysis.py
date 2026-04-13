@@ -42,6 +42,7 @@ def load_known_variants_from_fasta(disease_fasta: str | Path) -> List[Dict[str, 
                 "reference_position": int(reference_position),
                 "reference_base": metadata.get("ref", ""),
                 "patient_base": metadata.get("alt", ""),
+                "sequence": record.sequence,
             }
         )
 
@@ -54,6 +55,16 @@ def choose_best_hit(rows: List[Dict[str, str]]) -> Dict[str, str]:
 
     def sort_key(row: Dict[str, str]) -> tuple[float, float]:
         return (float(row["bitscore"]), float(row["pident"]))
+
+    snp_safe_rows = [
+        row
+        for row in rows
+        if int(row.get("mismatch", "0")) > 0
+        and int(row.get("gapopen", "0")) == 0
+        and (abs(int(row["qend"]) - int(row["qstart"])) + 1) == (abs(int(row["send"]) - int(row["sstart"])) + 1)
+    ]
+    if snp_safe_rows:
+        return max(snp_safe_rows, key=sort_key)
 
     mismatch_rows = [row for row in rows if int(row.get("mismatch", "0")) > 0]
     if mismatch_rows:
@@ -99,6 +110,54 @@ def slice_alignment_region(sequence: str, start: str, end: str) -> str:
     return normalize_sequence(sequence)[start_index:end_index]
 
 
+def get_sequence_context(sequence: str, position: int, flank: int = 20) -> Dict[str, str]:
+    normalized = normalize_sequence(sequence)
+    zero_based = position - 1
+    start = max(0, zero_based - flank)
+    end = min(len(normalized), zero_based + flank + 1)
+    return {"window": normalized[start:end]}
+
+
+def get_atg_relative_position(sequence: str, position: int) -> int | None:
+    normalized = normalize_sequence(sequence)
+    zero_based = position - 1
+    nearest_start = None
+
+    for index in range(max(0, zero_based - 300), zero_based + 1):
+        if normalized[index:index + 3] == "ATG":
+            nearest_start = index + 1
+
+    if nearest_start is None:
+        return None
+    return position - nearest_start + 1
+
+
+def enrich_snp_coordinates(
+    snps: List[Dict[str, str | int]],
+    best_hit: Dict[str, str],
+    query_sequence: str,
+    reference_sequence: str,
+) -> List[Dict[str, str | int]]:
+    enriched: List[Dict[str, str | int]] = []
+    reference_forward = int(best_hit["sstart"]) <= int(best_hit["send"])
+
+    for snp in snps:
+        query_position = int(snp["query_position"])
+        reference_position = int(snp["reference_position"])
+        enriched_snp = dict(snp)
+        enriched_snp["query_aligned_position"] = query_position - int(best_hit["qstart"]) + 1
+        enriched_snp["reference_aligned_position"] = (
+            reference_position - int(best_hit["sstart"]) + 1
+            if reference_forward
+            else int(best_hit["sstart"]) - reference_position + 1
+        )
+        enriched_snp["query_atg_relative_position"] = get_atg_relative_position(query_sequence, query_position)
+        enriched_snp["reference_atg_relative_position"] = get_atg_relative_position(reference_sequence, reference_position)
+        enriched.append(enriched_snp)
+
+    return enriched
+
+
 def compare_aligned_sequences(
     query_sequence: str,
     reference_sequence: str,
@@ -114,7 +173,8 @@ def compare_aligned_sequences(
         raise ValueError(
             "Aligned query and reference regions are different lengths. "
             f"Query region length: {len(query_region)}, reference region length: {len(reference_region)}. "
-            "This usually means the query input used for SNP analysis is not the same sequence used for the BLAST run."
+            "This usually means the selected BLAST hit contains a gap/indel or the query input used for SNP analysis "
+            "is not the same sequence used for the BLAST run."
         )
 
     snps: List[Dict[str, str | int]] = []
@@ -146,16 +206,34 @@ def compare_aligned_sequences(
 def match_known_variants(
     snps: List[Dict[str, str | int]],
     known_variants: List[Dict[str, str | int]],
+    query_sequence: str | None = None,
 ) -> List[Dict[str, str | int]]:
     matches: List[Dict[str, str | int]] = []
+    normalized_query = normalize_sequence(query_sequence) if query_sequence else None
 
     for snp in snps:
         for variant in known_variants:
-            if (
-                snp["reference_position"] == variant.get("reference_position")
-                and snp["reference_base"] == variant.get("reference_base")
+            same_change = (
+                snp["reference_base"] == variant.get("reference_base")
                 and snp["patient_base"] == variant.get("patient_base")
-            ):
+            )
+            position_match = (
+                snp["reference_position"] == variant.get("reference_position")
+                or snp["query_position"] == variant.get("reference_position")
+                or snp.get("query_aligned_position") == variant.get("reference_position")
+                or snp.get("reference_aligned_position") == variant.get("reference_position")
+                or snp.get("query_atg_relative_position") == variant.get("reference_position")
+                or snp.get("reference_atg_relative_position") == variant.get("reference_position")
+            )
+            sequence_match = False
+            variant_sequence = variant.get("sequence")
+            if normalized_query and isinstance(variant_sequence, str):
+                normalized_variant_sequence = normalize_sequence(variant_sequence)
+                sequence_match = (
+                    normalized_variant_sequence in normalized_query
+                    or normalized_query in normalized_variant_sequence
+                )
+            if same_change and (position_match or sequence_match):
                 merged = dict(snp)
                 merged.update(variant)
                 matches.append(merged)
@@ -173,6 +251,15 @@ def analyze_best_blast_hit(
     workdir: str | Path | None = None,
 ) -> Dict[str, object]:
     best_hit = choose_best_hit(blast_rows)
+    query_span = abs(int(best_hit["qend"]) - int(best_hit["qstart"])) + 1
+    reference_span = abs(int(best_hit["send"]) - int(best_hit["sstart"])) + 1
+    if int(best_hit.get("gapopen", "0")) > 0 or query_span != reference_span:
+        raise ValueError(
+            "The selected BLAST hit is not SNP-only. "
+            f"gapopen={best_hit.get('gapopen', '0')}, query span={query_span}, reference span={reference_span}. "
+            "Current SNP analysis supports substitution-style mismatches, not indels. "
+            "Use a hit with gapopen=0, or update the query/reference input."
+        )
     reference_record = get_sequence_from_database(db_name, best_hit["sseqid"], blast_bin, workdir=workdir)
     query_record = get_query_record(query_source, query_header=query_header)
 
@@ -184,10 +271,16 @@ def analyze_best_blast_hit(
         reference_start=best_hit["sstart"],
         reference_end=best_hit["send"],
     )
+    snps = enrich_snp_coordinates(
+        snps=snps,
+        best_hit=best_hit,
+        query_sequence=query_record.sequence,
+        reference_sequence=reference_record.sequence,
+    )
 
     variant_matches: List[Dict[str, str | int]] = []
     if known_variants:
-        variant_matches = match_known_variants(snps, known_variants)
+        variant_matches = match_known_variants(snps, known_variants, query_sequence=query_record.sequence)
 
     return {
         "best_hit": best_hit,
@@ -209,6 +302,9 @@ def analyze_with_disease_fasta(
     workdir: str | Path | None = None,
 ) -> Dict[str, object]:
     known_variants = load_known_variants_from_fasta(disease_fasta)
+    best_hit = choose_best_hit(blast_rows)
+    reference_record = get_sequence_from_database(db_name, best_hit["sseqid"], blast_bin, workdir=workdir)
+    query_record = get_query_record(query_source, query_header=query_header)
     result = analyze_best_blast_hit(
         blast_rows=blast_rows,
         db_name=db_name,
@@ -219,7 +315,6 @@ def analyze_with_disease_fasta(
         workdir=workdir,
     )
 
-    best_hit = result["best_hit"]
     snps = result["snps"]
     matches = result["known_variant_matches"]
 
@@ -234,21 +329,48 @@ def analyze_with_disease_fasta(
             (
                 variant
                 for variant in matches
-                if variant["reference_position"] == snp["reference_position"]
-                and variant["reference_base"] == snp["reference_base"]
-                and variant["patient_base"] == snp["patient_base"]
+                if (
+                    variant["reference_base"] == snp["reference_base"]
+                    and variant["patient_base"] == snp["patient_base"]
+                    and (
+                        variant["reference_position"] == snp["reference_position"]
+                        or variant["reference_position"] == snp["query_position"]
+                        or variant["reference_position"] == (int(snp["query_position"]) - int(best_hit["qstart"]) + 1)
+                        or variant["reference_position"]
+                        == (
+                            int(snp["reference_position"]) - int(best_hit["sstart"]) + 1
+                            if int(best_hit["sstart"]) <= int(best_hit["send"])
+                            else int(best_hit["sstart"]) - int(snp["reference_position"]) + 1
+                        )
+                        or variant["reference_position"] == get_atg_relative_position(query_record.sequence, int(snp["query_position"]))
+                        or variant["reference_position"] == get_atg_relative_position(reference_record.sequence, int(snp["reference_position"]))
+                    )
+                )
             ),
             None,
         )
+        query_context = get_sequence_context(query_record.sequence, int(snp["query_position"]))
+        reference_context = get_sequence_context(reference_record.sequence, int(snp["reference_position"]))
+        query_atg_relative_position = snp.get("query_atg_relative_position")
+        reference_atg_relative_position = snp.get("reference_atg_relative_position")
 
         report_rows.append(
             {
                 "index": index,
                 "sseqid": best_hit["sseqid"],
                 "query_position": snp["query_position"],
+                "query_global_position": snp["query_position"],
+                "query_aligned_position": snp.get("query_aligned_position"),
+                "query_atg_relative_position": query_atg_relative_position,
                 "reference_position": snp["reference_position"],
+                "reference_global_position": snp["reference_position"],
+                "reference_aligned_position": snp.get("reference_aligned_position"),
+                "reference_atg_relative_position": reference_atg_relative_position,
                 "query_base": snp["patient_base"],
                 "supposed_base": snp["reference_base"],
+                "change": snp["change"],
+                "query_context": query_context["window"],
+                "reference_context": reference_context["window"],
                 "pathogenicity": matched_variant.get("pathogenicity", "Unknown") if matched_variant else "Unknown",
                 "harm_level": matched_variant.get("harm_level", "Unknown") if matched_variant else "Unknown",
                 "disease": matched_variant.get("disease", "Unknown") if matched_variant else "Unknown",
@@ -303,10 +425,13 @@ def format_analysis_report(result: Dict[str, object], results_file: str | Path) 
 
     for row in report_rows:
         lines.append(
-            f"SNP {row['index']}: query pos {row['query_position']}, ref pos {row['reference_position']}, "
+            f"SNP {row['index']}: query pos {row['query_global_position']}, ref pos {row['reference_global_position']}, "
             f"base {row['supposed_base']}->{row['query_base']}, disease={row['disease']}, "
             f"variant={row['variant_name']}, pathogenicity={row['pathogenicity']}, harm={row['harm_level']}"
         )
+        lines.append(f"Query context: {row['query_context']}")
+        lines.append(f"Reference context: {row['reference_context']}")
+        lines.append("")
     return "\n".join(lines)
 
 

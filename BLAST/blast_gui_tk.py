@@ -7,7 +7,10 @@ from Blast_code import (
     DEFAULT_DATABASE_NAME,
     add_fasta_to_blast_database,
     add_sequence_to_blast_database,
+    build_blast_database,
+    build_blast_database_from_sequence,
     parse_blast_tabular,
+    read_fasta,
     resolve_database_prefix,
     run_blastn,
     run_blastn_from_sequence,
@@ -83,6 +86,7 @@ class BlastApp:
 
         db_button_frame = ttk.Frame(main)
         db_button_frame.grid(row=3, column=0, columnspan=3, sticky="ew", pady=10)
+        ttk.Button(db_button_frame, text="Create DB From FASTA", command=self.create_database_from_fasta).pack(side="left", padx=4)
         ttk.Button(db_button_frame, text="Add FASTA To Database", command=self.add_fasta_to_database).pack(side="left", padx=4)
         ttk.Button(db_button_frame, text="Preview Database", command=self.preview_database).pack(side="left", padx=4)
 
@@ -96,6 +100,7 @@ class BlastApp:
 
         add_sequence_button_frame = ttk.Frame(main)
         add_sequence_button_frame.grid(row=6, column=0, columnspan=3, sticky="ew", pady=6)
+        ttk.Button(add_sequence_button_frame, text="Create DB From Header/Sequence", command=self.create_database_from_sequence).pack(side="left", padx=4)
         ttk.Button(add_sequence_button_frame, text="Add Header/Sequence To Database", command=self.add_sequence_record_to_database).pack(side="left", padx=4)
 
         self._add_path_row(main, "Query FASTA (optional)", self.query_var, self.pick_query, 7)
@@ -246,6 +251,27 @@ class BlastApp:
             self._set_status("BLAST failed")
             messagebox.showerror("BLAST Error", str(exc))
 
+    def create_database_from_fasta(self) -> None:
+        try:
+            self._set_status("Creating database...")
+            blast_bin = self.blast_bin_var.get().strip()
+            db_name = self.db_name_var.get().strip()
+            fasta_path = self.add_fasta_var.get().strip()
+            self._require_inputs(blast_bin, db_name, fasta_path)
+            resolved_db = resolve_database_prefix(db_name, blast_bin)
+            self._write_output(f"Creating database: {resolved_db}\n")
+
+            result = build_blast_database(
+                reference_fasta=fasta_path,
+                db_name=db_name,
+                blast_bin=blast_bin,
+            )
+            self._write_output(result.stdout or result.stderr or "Database creation completed.\n")
+            self._set_status("Database creation complete")
+        except Exception as exc:
+            self._set_status("Database creation failed")
+            messagebox.showerror("Database Creation Error", str(exc))
+
     def add_fasta_to_database(self) -> None:
         try:
             self._set_status("Updating database...")
@@ -276,6 +302,29 @@ class BlastApp:
         except Exception as exc:
             self._set_status("Database update failed")
             messagebox.showerror("Database Update Error", str(exc))
+
+    def create_database_from_sequence(self) -> None:
+        try:
+            self._set_status("Creating database...")
+            blast_bin = self.blast_bin_var.get().strip()
+            db_name = self.db_name_var.get().strip()
+            header = self.add_header_var.get().strip()
+            sequence = self.add_sequence_text.get("1.0", "end").strip()
+            self._require_inputs(blast_bin, db_name, header, sequence)
+            resolved_db = resolve_database_prefix(db_name, blast_bin)
+            self._write_output(f"Creating database: {resolved_db}\n")
+
+            result = build_blast_database_from_sequence(
+                reference_sequence=sequence,
+                reference_header=header,
+                db_name=db_name,
+                blast_bin=blast_bin,
+            )
+            self._write_output(result.stdout or result.stderr or "Database creation completed.\n")
+            self._set_status("Database creation complete")
+        except Exception as exc:
+            self._set_status("Database creation failed")
+            messagebox.showerror("Database Creation Error", str(exc))
 
     def add_sequence_record_to_database(self) -> None:
         try:
@@ -334,12 +383,14 @@ class BlastApp:
         try:
             disease_fasta = self.disease_fasta_var.get().strip() or str(DEFAULT_DISEASE_FASTA)
             summary = summarize_disease_database(disease_fasta)
-            preview = preview_disease_database(disease_fasta)
+            records = read_fasta(disease_fasta)
             summary_lines = [f"Disease database: {disease_fasta}", f"Record count: {len(summary)}", ""]
             for row in summary:
-                summary_lines.append(f"{row['header']} | length={row['length']}")
-            summary_lines.append("")
-            summary_lines.append(preview)
+                summary_lines.append(f">{row['header']}")
+                matching_record = next((record for record in records if record.header == row["header"]), None)
+                if matching_record:
+                    summary_lines.append(matching_record.sequence)
+                summary_lines.append("")
             self._show_text_popup("Disease Database", "\n".join(summary_lines))
         except Exception as exc:
             messagebox.showerror("Disease Database Error", str(exc))
@@ -541,10 +592,13 @@ class BlastApp:
 
         for row in report_rows:
             lines.append(
-                f"SNP {row['index']}: query pos {row['query_position']}, ref pos {row['reference_position']}, "
+                f"SNP {row['index']}: query pos {row['query_global_position']}, ref pos {row['reference_global_position']}, "
                 f"base {row['supposed_base']}->{row['query_base']}, disease={row['disease']}, "
                 f"variant={row['variant_name']}, pathogenicity={row['pathogenicity']}, harm={row['harm_level']}"
             )
+            lines.append(f"Query context: {row['query_context']}")
+            lines.append(f"Reference context: {row['reference_context']}")
+            lines.append("")
 
         return "\n".join(lines)
 
