@@ -531,7 +531,6 @@ def parse_blast_tabular(results_file: str | Path) -> List[Dict[str, str]]:
     return rows
 
 
-if __name__ == "__main__":
     blast_bin = r"C:\Users\alexa\OneDrive\Documents\EC552\BLAST\blast-2.17.0+\bin"
     query_fasta = "patient.fasta"
     db_name = "gene_db"

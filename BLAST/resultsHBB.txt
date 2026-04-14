@@ -1,0 +1,4 @@
+HBB_sickle_patient_long|gene=HBB|variant=c.20A>T|disease=Sickle_cell_disease	NC_060935.1:c5286439-5284832	100.000	376	0	0	1	376	119	494	0.0	695
+HBB_sickle_patient_long|gene=HBB|variant=c.20A>T|disease=Sickle_cell_disease	NC_060935.1:c5286439-5284832	97.059	68	2	0	377	444	51	118	2.16e-29	115
+HBB_sickle_patient_long|gene=HBB|variant=c.20A>T|disease=Sickle_cell_disease	NC_000011.10:c5227071-5225464	100.000	376	0	0	1	376	119	494	0.0	695
+HBB_sickle_patient_long|gene=HBB|variant=c.20A>T|disease=Sickle_cell_disease	NC_000011.10:c5227071-5225464	98.529	68	1	0	377	444	51	118	4.65e-31	121
