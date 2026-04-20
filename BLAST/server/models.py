@@ -39,6 +39,13 @@ class SNPResult(BaseModel):
 
 class AnalyzeResponse(BaseModel):
     snps: List[SNPResult]
+    fasta_report: str = ""  # pre-formatted SNP report from format_analysis_report()
+
+
+class ExportRequest(BaseModel):
+    snps: List[SNPResult]
+    format: str           # "txt" | "json" | "csv" | "fasta"
+    fasta_report: str = ""  # pre-formatted report text; required when format="fasta"
 
 
 # ── Sequences ─────────────────────────────────────────────────────────────────

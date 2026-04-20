@@ -76,6 +76,15 @@ const api = {
     );
     return data;
   },
+
+  async exportSnps(snps, format) {
+    const { data } = await client.post(
+      '/api/analyze/export',
+      { snps, format },
+      { responseType: 'blob' },
+    );
+    return data;
+  },
 };
 
 export default api;

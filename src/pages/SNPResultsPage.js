@@ -9,13 +9,86 @@ import T from '../styles/theme';
 
 const COLUMNS = ['SNP #', 'Position', 'Ref', 'Variant', 'Codon', 'AA Change', 'Disease', 'Pathogenicity'];
 
+// ── Mock export helpers (used when USE_MOCK = true) ──────────────────────────
+
+function _mockTxt(snps) {
+  const lines = [
+    'CLEAVE SNP Analysis Report',
+    '==========================',
+    `Total variants detected: ${snps.length}`,
+    '',
+  ];
+  snps.forEach((snp) => {
+    lines.push(
+      `SNP #${snp.snpNo}`,
+      `  Position      : ${snp.position}`,
+      `  Ref / Variant : ${snp.refNucleotide} → ${snp.varNucleotide}`,
+      `  Codon         : ${snp.codon}`,
+      `  AA Change     : ${snp.aminoAcidChange}`,
+      `  Gene          : ${snp.gene}`,
+      `  Disease       : ${snp.disease}`,
+      `  Pathogenicity : ${snp.pathogenicity}`,
+      '',
+    );
+  });
+  return lines.join('\n');
+}
+
+const _CSV_FIELDS = [
+  'snpNo', 'position', 'refNucleotide', 'varNucleotide',
+  'codon', 'aminoAcidChange', 'gene', 'disease', 'pathogenicity',
+];
+
+function _mockCsv(snps) {
+  const rows = [_CSV_FIELDS.join(',')];
+  snps.forEach((snp) => {
+    rows.push(_CSV_FIELDS.map((f) => JSON.stringify(snp[f] ?? '')).join(','));
+  });
+  return rows.join('\n');
+}
+
+function _mockFasta(snps) {
+  const lines = [
+    'SNP analysis from analysis',
+    'Query: mock_sequence',
+    'Best match: HBB reference',
+    `Summary: ${snps.length > 0 ? 'Known SNP disease match found.' : 'No identified known SNP disease in the matched region.'}`,
+    `Detected SNP count: ${snps.length}`,
+    '',
+  ];
+  snps.forEach((snp) => {
+    lines.push(
+      `SNP ${snp.snpNo}: query pos ${snp.position}, ref pos N/A, ` +
+      `base ${snp.refNucleotide}->${snp.varNucleotide}, ` +
+      `disease=${snp.disease.replace(/ /g, '_')}, ` +
+      `variant=N/A, pathogenicity=${snp.pathogenicity}, harm=Unknown`,
+      'Query context: N/A',
+      'Reference context: N/A',
+      '',
+    );
+  });
+  return lines.join('\n');
+}
+
+function _triggerDownload(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ── Page component ────────────────────────────────────────────────────────────
+
 export default function SNPResultsPage() {
   const navigate = useNavigate();
   const {
-    snpResults, setSelectedSNP, inputSequence,
+    snpResults, snpFastaReport, setSelectedSNP, inputSequence,
     grnaCacheMap, setGrnaCacheMap,
   } = useApp();
   const [loading, setLoading] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   // Guard: redirect if no results
   if (!snpResults) {
@@ -39,6 +112,32 @@ export default function SNPResultsPage() {
       </PageShell>
     );
   }
+
+  const handleExport = async (format) => {
+    setExporting(true);
+    try {
+      let blob;
+      if (format === 'fasta') {
+        // FASTA report is pre-generated at analysis time — download directly from state
+        const content = USE_MOCK ? _mockFasta(snpResults) : snpFastaReport;
+        blob = new Blob([content], { type: 'text/plain' });
+      } else if (USE_MOCK) {
+        const mimeTypes = { txt: 'text/plain', json: 'application/json', csv: 'text/csv' };
+        let content;
+        if (format === 'json') content = JSON.stringify(snpResults, null, 2);
+        else if (format === 'csv') content = _mockCsv(snpResults);
+        else content = _mockTxt(snpResults);
+        blob = new Blob([content], { type: mimeTypes[format] });
+      } else {
+        blob = await api.exportSnps(snpResults, format);
+      }
+      _triggerDownload(blob, `snp_results.${format === 'fasta' ? 'txt' : format}`);
+    } catch (err) {
+      alert(`Export failed: ${err.message}`);
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const handleSelect = async (snp) => {
     setSelectedSNP(snp);
@@ -84,7 +183,22 @@ export default function SNPResultsPage() {
       <PageHeader
         title="SNP Detection Results"
         subtitle={`${snpResults.length} variant${snpResults.length !== 1 ? 's' : ''} detected — click a row to design CRISPR corrections`}
-        actions={<Btn variant="ghost" onClick={() => navigate('/analysis')}>← New Analysis</Btn>}
+        actions={
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+            {(['txt', 'json', 'csv', 'fasta']).map((fmt) => (
+              <Btn
+                key={fmt}
+                variant="ghost"
+                onClick={() => handleExport(fmt)}
+                disabled={exporting}
+                style={{ padding: '6px 14px', fontSize: 12 }}
+              >
+                {exporting ? '…' : `Export ${fmt.toUpperCase()}`}
+              </Btn>
+            ))}
+            <Btn variant="ghost" onClick={() => navigate('/analysis')}>← New Analysis</Btn>
+          </div>
+        }
       />
 
       <Card style={{ padding: 0, overflow: 'hidden' }}>
