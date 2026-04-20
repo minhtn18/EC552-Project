@@ -1,0 +1,32 @@
+[
+  {
+    "id": 1,
+    "name": "HBB Sickle Cell Mutation (HbS)",
+    "gene": "HBB",
+    "organism": "Homo sapiens",
+    "length": 167,
+    "description": "Beta-globin gene with Glu6Val sickle cell mutation",
+    "sequence": "ATGGTGCATCTGACTCCTGTGGAGAAGTCTGCCGTTACTGCCCTGTGGGGCAAGGTGAACGTGGATGAAGTTGGTGGTGAGGCCCTGGGCAGGTTGGTATCAAGGTTACAAGACAGGTTTAAGGAGACCAATAGAAACTGGGCATGTGGAGACAGAGAAGACTCTTGG",
+    "added": "2026-03-15"
+  },
+  {
+    "id": 2,
+    "name": "HBB Hemoglobin C (HbC)",
+    "gene": "HBB",
+    "organism": "Homo sapiens",
+    "length": 167,
+    "description": "Beta-globin gene with Glu6Lys mutation",
+    "sequence": "ATGGTGCATCTGACTCCTAAGGAGAAGTCTGCCGTTACTGCCCTGTGGGGCAAGGTGAACGTGGATGAAGTTGGTGGTGAGGCCCTGGGCAGGTTGGTATCAAGGTTACAAGACAGGTTTAAGGAGACCAATAGAAACTGGGCATGTGGAGACAGAGAAGACTCTTGG",
+    "added": "2026-03-15"
+  },
+  {
+    "id": 3,
+    "name": "HBB Wild Type (Healthy Reference)",
+    "gene": "HBB",
+    "organism": "Homo sapiens",
+    "length": 167,
+    "description": "Normal beta-globin gene — no mutations",
+    "sequence": "ATGGTGCATCTGACTCCTGAGGAGAAGTCTGCCGTTACTGCCCTGTGGGGCAAGGTGAACGTGGATGAAGTTGGTGGTGAGGCCCTGGGCAGGTTGGTATCAAGGTTACAAGACAGGTTTAAGGAGACCAATAGAAACTGGGCATGTGGAGACAGAGAAGACTCTTGG",
+    "added": "2026-03-10"
+  }
+]

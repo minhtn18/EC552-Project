@@ -43,6 +43,39 @@ const api = {
     const { data } = await client.post('/api/sequences', sequenceData);
     return data;
   },
+
+  async getConfig() {
+    const { data } = await client.get('/api/config');
+    return data;
+  },
+
+  async saveConfig(configData) {
+    const { data } = await client.post('/api/config', configData);
+    return data;
+  },
+
+  async getDbStatus() {
+    const { data } = await client.get('/api/database/status');
+    return data;
+  },
+
+  async buildDatabase(fastaText) {
+    const { data } = await client.post(
+      '/api/database/build',
+      { fasta_text: fastaText },
+      { timeout: 120000 },
+    );
+    return data;
+  },
+
+  async addToDatabase(fastaText) {
+    const { data } = await client.post(
+      '/api/database/add',
+      { fasta_text: fastaText },
+      { timeout: 120000 },
+    );
+    return data;
+  },
 };
 
 export default api;

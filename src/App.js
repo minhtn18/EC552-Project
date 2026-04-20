@@ -12,6 +12,7 @@ import {
   CRISPRDesignPage,
   BindingViewPage,
   EditResultsPage,
+  SettingsPage,
 } from './pages';
 
 /**
@@ -37,6 +38,9 @@ export default function App() {
           <Route path="/results/crispr" element={<CRISPRDesignPage />} />
           <Route path="/results/binding" element={<BindingViewPage />} />
           <Route path="/results/edit" element={<EditResultsPage />} />
+
+          {/* Settings — configure BLAST bin path */}
+          <Route path="/settings" element={<SettingsPage />} />
 
           {/* Fallback — redirect unknown routes to home */}
           <Route path="*" element={<HomePage />} />
