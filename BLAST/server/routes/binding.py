@@ -29,9 +29,11 @@ def get_binding_site(body: BindingSiteRequest):
     grna = body.grna
     snp  = body.snp
 
-    guide_seq  = str(grna.get("sequence", ""))
-    strand     = str(grna.get("strand", "sense"))
-    snp_pos    = int(snp.get("position", 0))
+    guide_seq   = str(grna.get("sequence", ""))
+    strand      = str(grna.get("strand", "sense"))
+    # snp.position is 1-based (from BLAST alignment); convert to 0-based so it
+    # can be used directly as a Python array index inside compute_binding_site.
+    snp_pos     = max(0, int(snp.get("position", 1)) - 1)
     window_size = int(body.windowSize or 100)
 
     if not guide_seq:

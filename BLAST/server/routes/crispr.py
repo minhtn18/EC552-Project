@@ -31,11 +31,11 @@ def crispr_design(body: CrisprDesignRequest):
     settings = get_settings()
     snp = body.snp
 
-    # Derive the SNP's 0-based position within surroundingSequence.
-    # The frontend passes snp.position as a 1-based query position; we use it
-    # as an approximation relative to the window center when an exact offset
-    # is not provided.
-    snp_pos_in_window = int(snp.get("position", len(body.surroundingSequence) // 2))
+    # The SNP is placed at the center of surroundingSequence by convention —
+    # the frontend builds the window so the variant falls in the middle.
+    # snp.position is an absolute 1-based genomic/alignment coordinate and
+    # must NOT be used as an index into this short window string.
+    snp_pos_in_window = len(body.surroundingSequence) // 2
 
     try:
         candidates = find_grna_candidates(

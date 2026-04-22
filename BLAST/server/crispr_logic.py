@@ -165,23 +165,48 @@ def _blast_locate_guide(
 
 # ── Composite scoring ─────────────────────────────────────────────────────────
 
-def _score_guide(
+def _cheap_score(
     guide: str,
     pam_position: int,  # 0-based index in sequence where PAM starts
     snp_position: int,  # 0-based index in surrounding_sequence
-    blast_bin: str,
-    db_name: str,
-    workdir: Path,
 ) -> Dict:
+    """
+    Compute the three fast metrics (GC content, cut-site proximity, homopolymer
+    penalty) without running any BLAST search.  Used to pre-rank candidates so
+    the expensive off-target BLAST only runs on the top N guides.
+    """
     gc = (guide.count("G") + guide.count("C")) / len(guide) * 100
-    cut_site = pam_position - CUT_OFFSET
-    cut_dist = abs(snp_position - cut_site)
+    cut_dist = abs(snp_position - (pam_position - CUT_OFFSET))
     hp = _max_homopolymer_run(guide) / len(guide)
-    off_targets = _count_off_targets(guide, blast_bin, db_name, workdir)
 
     gc_score  = 1.0 if 40 <= gc <= 65 else 0.5
     cut_score = max(0.0, 1.0 - cut_dist / 20.0)
     hp_score  = 1.0 - hp
+
+    # Off-target weight reserved at 0 so we can add it later; partial score used
+    # only for pre-ranking, not returned to the caller.
+    partial = 0.30 * cut_score + 0.25 * gc_score + 0.15 * hp_score
+
+    return {
+        "gcContent":          round(gc, 1),
+        "cutSiteDistance":    cut_dist,
+        "homopolymerPenalty": round(hp, 4),
+        "_partial":           partial,  # internal pre-rank key, stripped later
+    }
+
+
+def _finalise_score(candidate: Dict, blast_bin: str, db_name: str, workdir: Path) -> Dict:
+    """
+    Add off-target count via BLAST and compute the final composite score.
+    Call this only on pre-filtered candidates to avoid running BLAST on every
+    PAM site found in the surrounding sequence.
+    """
+    guide = candidate["sequence"]
+    off_targets = _count_off_targets(guide, blast_bin, db_name, workdir)
+
+    gc_score  = 1.0 if 40 <= candidate["gcContent"] <= 65 else 0.5
+    cut_score = max(0.0, 1.0 - candidate["cutSiteDistance"] / 20.0)
+    hp_score  = 1.0 - candidate["homopolymerPenalty"]
     ot_score  = max(0.0, 1.0 - off_targets / 10.0)
 
     score = (
@@ -191,13 +216,31 @@ def _score_guide(
         0.30 * ot_score
     )
 
-    return {
-        "gcContent":          round(gc, 1),
-        "cutSiteDistance":    cut_dist,
-        "homopolymerPenalty": round(hp, 4),
-        "offTargetCount":     off_targets,
-        "score":              round(score, 4),
+    candidate.pop("_partial", None)
+    candidate["offTargetCount"] = off_targets
+    candidate["score"] = round(score, 4)
+    return candidate
+
+
+def _score_guide(
+    guide: str,
+    pam_position: int,
+    snp_position: int,
+    blast_bin: str,
+    db_name: str,
+    workdir: Path,
+) -> Dict:
+    """
+    Full composite score (cheap metrics + BLAST off-target count) for a single guide.
+    Used by refine_guide() and the refine-grna route where only one guide is scored
+    at a time, so the two-phase pre-filter optimisation is not needed.
+    """
+    candidate = {
+        "sequence": guide,
+        **_cheap_score(guide, pam_position, snp_position),
     }
+    _finalise_score(candidate, blast_bin, db_name, workdir)
+    return candidate
 
 
 # ── Public API ────────────────────────────────────────────────────────────────
@@ -217,33 +260,40 @@ def find_grna_candidates(
     guide RNAs, score each by the composite metric, and return the top candidates
     sorted by score descending.
 
+    Two-phase scoring to avoid running BLAST on every PAM site:
+      Phase 1 — cheap metrics only (GC, cut distance, homopolymer): O(1) per guide.
+      Phase 2 — BLAST off-target count: only for the top 2× max_candidates guides
+                 from phase 1, limiting BLAST calls to ≤ 2*max_candidates.
+
     Sense strand:     [20-mer guide][NGG]
     Antisense strand: [CCN][20-mer guide on RC strand]
     """
     seq = normalize_sequence(surrounding_sequence)
     edit_type = _edit_type(ref_nucleotide, var_nucleotide)
-    candidates: List[Dict] = []
+    pool: List[Dict] = []
     guide_id = 1
 
-    # ── Sense strand (search for xGG where x is any nucleotide) ──────────────
+    # ── Phase 1: collect all PAM sites and compute cheap scores ──────────────
+
+    # Sense strand (search for xGG)
     for p in range(GUIDE_LENGTH, len(seq) - 2):
         if seq[p + 1] == "G" and seq[p + 2] == "G":
             guide = seq[p - GUIDE_LENGTH:p]
             if len(guide) != GUIDE_LENGTH or "N" in guide:
                 continue
-            scores = _score_guide(guide, p, snp_position, blast_bin, db_name, workdir)
-            candidates.append({
-                "id":       guide_id,
-                "sequence": guide,
-                "pamSite":  seq[p:p + 3],
+            cheap = _cheap_score(guide, p, snp_position)
+            pool.append({
+                "id":          guide_id,
+                "sequence":    guide,
+                "pamSite":     seq[p:p + 3],
                 "pamPosition": p,
-                "strand":   "sense",
-                "editType": edit_type,
-                **scores,
+                "strand":      "sense",
+                "editType":    edit_type,
+                **cheap,
             })
             guide_id += 1
 
-    # ── Antisense strand (search RC sequence for xGG = NCC on sense strand) ──
+    # Antisense strand (RC of sequence, then same NGG scan)
     rc_seq = reverse_complement(seq)
     rc_len = len(rc_seq)
     for p in range(GUIDE_LENGTH, rc_len - 2):
@@ -251,23 +301,37 @@ def find_grna_candidates(
             guide = rc_seq[p - GUIDE_LENGTH:p]
             if len(guide) != GUIDE_LENGTH or "N" in guide:
                 continue
-            # Map PAM position back to sense-strand coordinate for cut distance calc
-            sense_pam_pos = rc_len - p - 3
-            scores = _score_guide(guide, sense_pam_pos, snp_position, blast_bin, db_name, workdir)
-            candidates.append({
+            sense_pam_pos = rc_len - p - 3  # map back to sense-strand coordinate
+            cheap = _cheap_score(guide, sense_pam_pos, snp_position)
+            pool.append({
                 "id":          guide_id,
                 "sequence":    guide,
                 "pamSite":     rc_seq[p:p + 3],
                 "pamPosition": sense_pam_pos,
                 "strand":      "antisense",
                 "editType":    edit_type,
-                **scores,
+                **cheap,
             })
             guide_id += 1
 
-    # Sort by score, take top N, re-number IDs
-    candidates.sort(key=lambda c: c["score"], reverse=True)
-    top = candidates[:max_candidates]
+    # ── Phase 2: run BLAST off-target count on the best candidates only ───────
+    # Pre-rank by partial score (no off-target term yet) and limit BLAST calls
+    # to 2× max_candidates so the endpoint stays well within the request timeout.
+    pool.sort(key=lambda c: c["_partial"], reverse=True)
+    blast_budget = max_candidates * 2
+    for candidate in pool[:blast_budget]:
+        _finalise_score(candidate, blast_bin, db_name, workdir)
+
+    # Candidates outside the budget still need their fields set (score = partial,
+    # offTargetCount = 0) so the response model is always complete.
+    for candidate in pool[blast_budget:]:
+        candidate.pop("_partial", None)
+        candidate.setdefault("offTargetCount", 0)
+        candidate.setdefault("score", 0.0)
+
+    # Final sort and truncate
+    pool.sort(key=lambda c: c["score"], reverse=True)
+    top = pool[:max_candidates]
     for i, c in enumerate(top, start=1):
         c["id"] = i
     return top
