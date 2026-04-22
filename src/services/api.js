@@ -15,12 +15,20 @@ const api = {
   },
 
   async crisprDesign(snp, surroundingSequence, windowSize = 50) {
-    const { data } = await client.post('/api/crispr-design', { snp, surroundingSequence, windowSize });
+    const { data } = await client.post(
+      '/api/crispr-design',
+      { snp, surroundingSequence, windowSize },
+      { timeout: 120000 },
+    );
     return data;
   },
 
   async refineGrna(grnaSequence, newLength, snpPosition, referenceContext) {
-    const { data } = await client.post('/api/refine-grna', { grnaSequence, newLength, snpPosition, referenceContext });
+    const { data } = await client.post(
+      '/api/refine-grna',
+      { grnaSequence, newLength, snpPosition, referenceContext },
+      { timeout: 120000 },
+    );
     return data;
   },
 
