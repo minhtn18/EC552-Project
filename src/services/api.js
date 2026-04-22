@@ -77,6 +77,11 @@ const api = {
     return data;
   },
 
+  async clearDatabase() {
+    const { data } = await client.delete('/api/database/clear');
+    return data;
+  },
+
   async exportSnps(snps, format) {
     const { data } = await client.post(
       '/api/analyze/export',

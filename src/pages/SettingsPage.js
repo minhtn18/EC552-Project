@@ -14,6 +14,7 @@ export default function SettingsPage() {
   // ── Database status ───────────────────────────────────────────────────────
   const [dbStatus, setDbStatus]           = useState(null);
   const [dbStatusLoading, setDbStatusLoading] = useState(true);
+  const [dbClearing, setDbClearing]       = useState(false);
 
   // ── Build / add database ──────────────────────────────────────────────────
   const [fastaInput, setFastaInput]       = useState('');
@@ -63,6 +64,21 @@ export default function SettingsPage() {
       setDbStatus(await api.getDbStatus());
     } finally {
       setDbStatusLoading(false);
+    }
+  };
+
+  const handleClearDatabase = async () => {
+    if (!window.confirm('Clear the entire database? This cannot be undone. You will need to rebuild it from a FASTA file.')) return;
+    setDbClearing(true);
+    try {
+      await api.clearDatabase();
+      setDbStatus(await api.getDbStatus());
+      setDbBuildStatus({ type: 'success', message: 'Database cleared. Use the form below to rebuild it.' });
+    } catch (err) {
+      const message = err.response?.data?.detail || err.message || 'Failed to clear database.';
+      setDbBuildStatus({ type: 'error', message });
+    } finally {
+      setDbClearing(false);
     }
   };
 
@@ -162,10 +178,22 @@ export default function SettingsPage() {
       <Card style={{ marginTop: 16 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
           <h3 style={{ margin: 0, fontSize: 14, color: T.text }}>Database Status</h3>
-          <Btn variant="ghost" onClick={handleRefreshDbStatus} disabled={dbStatusLoading}
-              style={{ padding: '6px 14px', fontSize: 12 }}>
-            {dbStatusLoading ? 'Refreshing…' : 'Refresh'}
-          </Btn>
+          <div style={{ display: 'flex', gap: 8 }}>
+            {dbStatus?.exists && (
+              <Btn
+                variant="ghost"
+                onClick={handleClearDatabase}
+                disabled={dbClearing || dbStatusLoading}
+                style={{ padding: '6px 14px', fontSize: 12, color: T.red, borderColor: `${T.red}44` }}
+              >
+                {dbClearing ? 'Clearing…' : 'Clear Database'}
+              </Btn>
+            )}
+            <Btn variant="ghost" onClick={handleRefreshDbStatus} disabled={dbStatusLoading || dbClearing}
+                style={{ padding: '6px 14px', fontSize: 12 }}>
+              {dbStatusLoading ? 'Refreshing…' : 'Refresh'}
+            </Btn>
+          </div>
         </div>
 
         {dbStatusLoading ? (

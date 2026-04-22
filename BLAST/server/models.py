@@ -79,6 +79,12 @@ class DbBuildResponse(BaseModel):
     status: DbStatusResponse
 
 
+class DbClearResponse(BaseModel):
+    success: bool
+    message: str
+    files_removed: int
+
+
 # ── CRISPR Design ─────────────────────────────────────────────────────────────
 
 class CrisprDesignRequest(BaseModel):
@@ -94,9 +100,46 @@ class RefineGrnaRequest(BaseModel):
     referenceContext: str
 
 
+class GrnaCandidate(BaseModel):
+    id: int
+    sequence: str
+    pamSite: str
+    pamPosition: int
+    cutSiteDistance: int
+    gcContent: float
+    homopolymerPenalty: float
+    offTargetCount: int
+    score: float
+    editType: str   # "Base Edit" | "HDR"
+    strand: str     # "sense" | "antisense"
+
+
+class CrisprDesignResponse(BaseModel):
+    grnaCandidates: List[GrnaCandidate]
+
+
+class RefineGrnaResponse(BaseModel):
+    refinedGRNA: Optional[GrnaCandidate]
+    previousScore: float
+    improvement: float
+
+
 # ── Binding Site ──────────────────────────────────────────────────────────────
 
 class BindingSiteRequest(BaseModel):
     grna: Dict[str, Any]
     snp: Dict[str, Any]
     windowSize: Optional[int] = 100
+
+
+class BindingSiteResponse(BaseModel):
+    referenceWindow: str
+    complementaryStrand: str
+    startPosition: int
+    endPosition: int
+    grnaBindStart: int
+    grnaBindEnd: int
+    pamStart: int
+    pamEnd: int
+    snpPositionInWindow: int
+    cutSitePosition: int

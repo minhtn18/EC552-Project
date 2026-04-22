@@ -14,7 +14,7 @@ from Blast_code import (
 )
 
 from ..config import NOT_CONFIGURED_DETAIL, get_settings, is_configured
-from ..models import DbBuildRequest, DbBuildResponse, DbStatusResponse
+from ..models import DbBuildRequest, DbBuildResponse, DbClearResponse, DbStatusResponse
 
 router = APIRouter(prefix="/database", tags=["database"])
 
@@ -164,4 +164,36 @@ def add_to_database(body: DbBuildRequest):
         success=True,
         message="Sequences added to database successfully.",
         status=DbStatusResponse(**_db_status_dict()),
+    )
+
+
+@router.delete("/clear", response_model=DbClearResponse)
+def clear_database():
+    """
+    Delete all BLAST database files for the configured db_name prefix.
+    The database can be rebuilt afterwards via /build.
+    """
+    settings = get_settings()
+    db_path = Path(settings["db_name"])
+
+    # Remove every file whose stem matches the database prefix (e.g. gene_db.nhr, .ndb, …)
+    removed = 0
+    for f in db_path.parent.glob(f"{db_path.name}.*"):
+        try:
+            f.unlink()
+            removed += 1
+        except OSError:
+            pass  # skip locked/missing files
+
+    if removed == 0:
+        return DbClearResponse(
+            success=True,
+            message="No database files found — nothing to clear.",
+            files_removed=0,
+        )
+
+    return DbClearResponse(
+        success=True,
+        message=f"Database cleared ({removed} file{'s' if removed != 1 else ''} removed).",
+        files_removed=removed,
     )
