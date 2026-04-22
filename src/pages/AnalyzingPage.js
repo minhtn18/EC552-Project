@@ -9,7 +9,7 @@ import T from '../styles/theme';
 
 export default function AnalyzingPage() {
   const navigate = useNavigate();
-  const { inputSequence, inputMeta, setSnpResults, setGrnaCacheMap } = useApp();
+  const { inputSequence, inputMeta, setSnpResults, setSnpFastaReport, setGrnaCacheMap } = useApp();
   const [error, setError] = useState(null);
 
   useEffect(() => {
@@ -31,6 +31,7 @@ export default function AnalyzingPage() {
         }
         if (!cancelled) {
           setSnpResults(result.snps);
+          setSnpFastaReport(result.fasta_report || '');
           setGrnaCacheMap(new Map());
           navigate('/results/snps', { replace: true });
         }

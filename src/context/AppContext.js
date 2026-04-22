@@ -25,6 +25,7 @@ export function AppProvider({ children }) {
 
   // ── Analysis results ──
   const [snpResults, setSnpResults] = useState(null);
+  const [snpFastaReport, setSnpFastaReport] = useState('');
   const [selectedSNP, setSelectedSNP] = useState(null);
   const [grnaCacheMap, setGrnaCacheMap] = useState(new Map());
   const [selectedGRNA, setSelectedGRNA] = useState(null);
@@ -50,6 +51,7 @@ export function AppProvider({ children }) {
     setInputSequence(null);
     setInputMeta(null);
     setSnpResults(null);
+    setSnpFastaReport('');
     setSelectedSNP(null);
     setGrnaCacheMap(new Map());
     setSelectedGRNA(null);
@@ -62,6 +64,7 @@ export function AppProvider({ children }) {
     inputSequence, setInputSequence,
     inputMeta, setInputMeta,
     snpResults, setSnpResults,
+    snpFastaReport, setSnpFastaReport,
     selectedSNP, setSelectedSNP,
     grnaCacheMap, setGrnaCacheMap,
     selectedGRNA, setSelectedGRNA,

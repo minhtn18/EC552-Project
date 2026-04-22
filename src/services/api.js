@@ -15,12 +15,20 @@ const api = {
   },
 
   async crisprDesign(snp, surroundingSequence, windowSize = 50) {
-    const { data } = await client.post('/api/crispr-design', { snp, surroundingSequence, windowSize });
+    const { data } = await client.post(
+      '/api/crispr-design',
+      { snp, surroundingSequence, windowSize },
+      { timeout: 120000 },
+    );
     return data;
   },
 
   async refineGrna(grnaSequence, newLength, snpPosition, referenceContext) {
-    const { data } = await client.post('/api/refine-grna', { grnaSequence, newLength, snpPosition, referenceContext });
+    const { data } = await client.post(
+      '/api/refine-grna',
+      { grnaSequence, newLength, snpPosition, referenceContext },
+      { timeout: 120000 },
+    );
     return data;
   },
 
@@ -41,6 +49,53 @@ const api = {
 
   async addSequence(sequenceData) {
     const { data } = await client.post('/api/sequences', sequenceData);
+    return data;
+  },
+
+  async getConfig() {
+    const { data } = await client.get('/api/config');
+    return data;
+  },
+
+  async saveConfig(configData) {
+    const { data } = await client.post('/api/config', configData);
+    return data;
+  },
+
+  async getDbStatus() {
+    const { data } = await client.get('/api/database/status');
+    return data;
+  },
+
+  async buildDatabase(fastaText) {
+    const { data } = await client.post(
+      '/api/database/build',
+      { fasta_text: fastaText },
+      { timeout: 120000 },
+    );
+    return data;
+  },
+
+  async addToDatabase(fastaText) {
+    const { data } = await client.post(
+      '/api/database/add',
+      { fasta_text: fastaText },
+      { timeout: 120000 },
+    );
+    return data;
+  },
+
+  async clearDatabase() {
+    const { data } = await client.delete('/api/database/clear');
+    return data;
+  },
+
+  async exportSnps(snps, format) {
+    const { data } = await client.post(
+      '/api/analyze/export',
+      { snps, format },
+      { responseType: 'blob' },
+    );
     return data;
   },
 };

@@ -7,3 +7,4 @@ export { default as SNPResultsPage } from './SNPResultsPage';
 export { default as CRISPRDesignPage } from './CRISPRDesignPage';
 export { default as BindingViewPage } from './BindingViewPage';
 export { default as EditResultsPage } from './EditResultsPage';
+export { default as SettingsPage } from './SettingsPage';

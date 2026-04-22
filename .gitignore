@@ -4,3 +4,11 @@ build/
 .env.local
 .DS_Store
 npm-debug.log*
+
+# FastAPI server — local machine config (contains machine-specific paths)
+BLAST/server_config.json
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo

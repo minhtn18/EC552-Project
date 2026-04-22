@@ -7,6 +7,7 @@ const NAV_LINKS = [
   { to: '/database', label: 'Database' },
   { to: '/analysis', label: 'Analysis' },
   { to: '/instructions', label: 'Instructions' },
+  { to: '/settings', label: 'Settings' },
 ];
 
 export default function Navbar() {
