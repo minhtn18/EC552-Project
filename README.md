@@ -83,41 +83,78 @@ Then open `http://localhost:3000` in your browser.
 ## Project Structure
 
 ```
-src/
-├── components/
-│   ├── shared/           # Reusable UI components (Btn, Card, PathBadge, Layout)
-│   │   ├── Btn.js
-│   │   ├── Card.js
-│   │   ├── PathBadge.js
-│   │   ├── Layout.js     # PageShell, PageHeader, Spinner
-│   │   └── index.js      # Barrel export
-│   └── Navbar.js
-├── pages/
-│   ├── HomePage.js           # Landing page with feature cards
-│   ├── DatabasePage.js       # Browse/add DNA sequences
-│   ├── AnalysisPage.js       # Sequence input (paste / upload)
-│   ├── InstructionsPage.js   # Usage guide + FAQ
-│   ├── SettingsPage.js       # BLAST bin config + database management
-│   ├── AnalyzingPage.js      # Loading screen (fires API call)
-│   ├── SNPResultsPage.js     # Detected SNPs table
-│   ├── CRISPRDesignPage.js   # gRNA candidates table + refinement
-│   ├── BindingViewPage.js    # Interactive SVG genome viewer
-│   ├── EditResultsPage.js    # Final summary + export
-│   └── index.js              # Barrel export
-├── context/
-│   └── AppContext.js         # Global state (React Context + useNavigate)
-├── services/
-│   └── api.js                # Axios client for FastAPI backend
-├── utils/
-│   └── sequence.js           # FASTA parser, sequence validator
-├── data/
-│   ├── config.js             # USE_MOCK toggle, app constants
-│   └── mockData.js           # Mock sequences, SNPs, gRNAs, binding data
-├── styles/
-│   ├── index.css             # Global CSS, reset, animations
-│   └── theme.js              # Theme constants for inline styles
-├── App.js                    # React Router setup
-└── index.js                  # ReactDOM entry point
+EC552-Project/
+│
+├── BLAST/                            # Python backend package
+│   ├── __init__.py                   # Makes BLAST/ a package (required for uvicorn)
+│   ├── Blast_code.py                 # Core BLAST wrappers: run_blastn, makeblastdb,
+│   │                                 #   fetch_all_blast_records, parse_blast_tabular
+│   ├── snp_analysis.py               # analyze_with_disease_fasta, format_analysis_report
+│   ├── disease_database_tools.py     # Load/query the SNP disease annotation CSV
+│   │
+│   ├── blast_database/               # Database inspection helpers
+│   │   ├── __init__.py
+│   │   └── manager.py                # inspect_database (record count, headers)
+│   │
+│   ├── disease_database/             # SNP disease annotation data files
+│   │
+│   ├── sample_fasta_test/            # Sample sequences for first-time setup
+│   │   ├── gene.fa                   # Reference HBB gene (use this to build the DB)
+│   │   └── human_HBBmutated_test_genomic_segment.fa  # Patient test sequence
+│   │
+│   └── server/                       # FastAPI application
+│       ├── __init__.py
+│       ├── main.py                   # App factory, router registration, CORS
+│       ├── models.py                 # All Pydantic request/response models
+│       ├── config.py                 # Read/write server_config.json, is_configured()
+│       ├── paths.py                  # BLAST_ROOT resolution, sys.path injection
+│       ├── crispr_logic.py           # gRNA PAM scanning, scoring, off-target BLAST,
+│       │                             #   binding site computation
+│       ├── export_tools.py           # write_text/json/csv/fasta_report_export()
+│       └── routes/
+│           ├── __init__.py
+│           ├── analyze.py            # POST /api/analyze, POST /api/analyze/export
+│           ├── config_route.py       # GET/POST /api/config
+│           ├── database.py           # GET/POST/DELETE /api/database/*
+│           ├── sequences.py          # GET/POST /api/sequences
+│           ├── crispr.py             # POST /api/crispr-design, POST /api/refine-grna
+│           └── binding.py            # POST /api/binding-site, GET /api/reference-info
+│
+└── src/                              # React frontend
+    ├── components/
+    │   ├── shared/                   # Reusable UI components
+    │   │   ├── Btn.js
+    │   │   ├── Card.js
+    │   │   ├── PathBadge.js
+    │   │   ├── Layout.js             # PageShell, PageHeader, Spinner
+    │   │   └── index.js              # Barrel export
+    │   └── Navbar.js
+    ├── pages/
+    │   ├── HomePage.js               # Landing page with feature cards
+    │   ├── DatabasePage.js           # Browse/add DNA sequences
+    │   ├── AnalysisPage.js           # Sequence input (paste / upload)
+    │   ├── InstructionsPage.js       # Usage guide + FAQ
+    │   ├── SettingsPage.js           # BLAST bin config + database management
+    │   ├── AnalyzingPage.js          # Loading screen (fires analysis API call)
+    │   ├── SNPResultsPage.js         # Detected SNPs table + export
+    │   ├── CRISPRDesignPage.js       # gRNA candidates table + refinement modal
+    │   ├── BindingViewPage.js        # Interactive SVG genome viewer
+    │   ├── EditResultsPage.js        # Final summary + export
+    │   └── index.js                  # Barrel export
+    ├── context/
+    │   └── AppContext.js             # Global pipeline state (React Context)
+    ├── services/
+    │   └── api.js                    # Axios client — all backend calls in one place
+    ├── utils/
+    │   └── sequence.js               # FASTA parser, sequence validator
+    ├── data/
+    │   ├── config.js                 # USE_MOCK toggle, app constants
+    │   └── mockData.js               # Mock SNPs, gRNAs, binding data for UI dev
+    ├── styles/
+    │   ├── index.css                 # Global CSS, reset, animations
+    │   └── theme.js                  # Design tokens for inline styles
+    ├── App.js                        # React Router setup, route definitions
+    └── index.js                      # ReactDOM entry point
 ```
 
 ## Route Map
