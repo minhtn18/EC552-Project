@@ -530,21 +530,3 @@ def parse_blast_tabular(results_file: str | Path) -> List[Dict[str, str]]:
         rows.append(dict(zip(columns, values)))
     return rows
 
-
-    blast_bin = r"C:\Users\alexa\OneDrive\Documents\EC552\BLAST\blast-2.17.0+\bin"
-    query_fasta = "patient.fasta"
-    db_name = "gene_db"
-    results_file = "results.txt"
-
-    # Example: run blastn and parse tabular output.
-    blast_result = run_blastn(query_fasta, db_name, results_file, blast_bin)
-    print(blast_result.stdout or blast_result.stderr)
-    print(parse_blast_tabular(results_file))
-
-    # Example: inspect a matched entry directly from the BLAST database.
-    print(fetch_blast_record(db_name, "HBB_healthy_reference", blast_bin))
-
-    # Example: run blastn directly from a pasted DNA sequence.
-    pasted_query = "ACATTTGCTTCTGACACAACTGTGTTCACTAGCAACCTCAAACAGACACCATGGTGCATCTGACTCCTGAGGAGAAGTCT"
-    direct_result = run_blastn_from_sequence(pasted_query, db_name, results_file, blast_bin)
-    print(direct_result.stdout or direct_result.stderr)
