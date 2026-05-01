@@ -474,7 +474,8 @@ class BlastApp:
             for row in rows:
                 lines.append(
                     f"Query: {row['qseqid']} | Match: {row['sseqid']} | Identity: {row['pident']}% | "
-                    f"Mismatches: {row['mismatch']} | Query range: {row['qstart']}-{row['qend']} | "
+                    f"Mismatches: {row['mismatch']} | Bit score: {row['bitscore']} | "
+                    f"Query range: {row['qstart']}-{row['qend']} | "
                     f"Reference range: {row['sstart']}-{row['send']}"
                 )
             self._write_output("\n".join(lines) + "\n")
